@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Package, Truck, DollarSign, AlertTriangle, Activity, Clock } from 'lucide-react'
-import { Shipment, Vehicle, Driver } from '@/lib/types/database'
+import { Package, Truck, DollarSign, AlertTriangle, Activity, Clock, Bell, MapPin } from 'lucide-react'
+import { Shipment, Vehicle, Driver, DriverAlertWithRelations } from '@/lib/types/database'
+import { ClearAlertsButton } from '@/components/dashboard/clear-alerts-button'
 
 async function getDashboardStats() {
   const supabase = await createClient()
@@ -23,9 +24,21 @@ async function getDashboardStats() {
     .from('drivers')
     .select('*') as { data: Driver[] | null }
 
+  // Get recent driver alerts
+  const { data: driverAlerts } = await supabase
+    .from('driver_alerts')
+    .select(`
+      *,
+      drivers (*),
+      shipments (*)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(10) as { data: DriverAlertWithRelations[] | null }
+
   const allShipments = shipments || []
   const allVehicles = vehicles || []
   const allDrivers = drivers || []
+  const allAlerts = driverAlerts || []
 
   const totalShipments = allShipments.length
   const inTransit = allShipments.filter(s => s.status === 'in_transit').length
@@ -38,9 +51,12 @@ async function getDashboardStats() {
 
   // Alerts: shipments pending for more than 24 hours
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  const alerts = allShipments.filter(
+  const pendingAlerts = allShipments.filter(
     s => s.status === 'pending' && s.created_at < oneDayAgo
   ).length
+  
+  // Active driver alerts (delay/emergency)
+  const activeDriverAlerts = allAlerts.filter(a => a.status === 'active').length
 
   // Fleet utilization: percentage of vehicles in use
   const vehiclesInUse = allVehicles.filter(v => v.status === 'in_use').length
@@ -55,6 +71,9 @@ async function getDashboardStats() {
 
   // Recent activity (last 5 shipments)
   const recentShipments = allShipments.slice(0, 5)
+  
+  // Recent alerts for activity feed
+  const recentAlerts = allAlerts.slice(0, 5)
 
   return {
     totalShipments,
@@ -62,13 +81,15 @@ async function getDashboardStats() {
     delivered,
     pending,
     totalRevenue,
-    alerts,
+    pendingAlerts,
+    activeDriverAlerts,
     fleetUtilization,
     vehiclesInUse,
     totalVehicles,
     activeDrivers,
     totalDrivers,
     recentShipments,
+    recentAlerts,
   }
 }
 
@@ -178,9 +199,9 @@ export default async function DashboardPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.alerts}</div>
+            <div className="text-2xl font-bold text-orange-600">{stats.pendingAlerts + stats.activeDriverAlerts}</div>
             <p className="text-xs text-muted-foreground">
-              Shipments pending &gt;24 hours
+              {stats.activeDriverAlerts} driver alerts, {stats.pendingAlerts} pending &gt;24h
             </p>
           </CardContent>
         </Card>
@@ -211,6 +232,86 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Driver Alerts */}
+      {stats.recentAlerts.length > 0 && (
+        <Card className="border-orange-200 dark:border-orange-800">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-orange-500" />
+                  Driver Alerts
+                </CardTitle>
+                <CardDescription>Recent delay and emergency reports from drivers</CardDescription>
+              </div>
+              {stats.activeDriverAlerts > 0 && <ClearAlertsButton />}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats.recentAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 ${
+                    alert.status === 'active' ? 'bg-orange-50 dark:bg-orange-950/20 -mx-2 px-2 py-2 rounded' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-3 w-3 rounded-full ${
+                      alert.alert_type === 'emergency' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'
+                    }`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{alert.issue}</p>
+                        <Badge 
+                          variant={alert.alert_type === 'emergency' ? 'destructive' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {alert.alert_type}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {alert.drivers?.name || 'Unknown Driver'}
+                        {alert.shipments && ` • ${alert.shipments.shipment_number}`}
+                        {alert.custom_message && ` - "${alert.custom_message}"`}
+                      </p>
+                      {alert.alert_type === 'emergency' && alert.latitude && alert.longitude && (
+                        <a 
+                          href={`https://www.google.com/maps?q=${alert.latitude},${alert.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 mt-1"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          View Location ({alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge 
+                      variant="outline" 
+                      className={`capitalize ${
+                        alert.status === 'active' 
+                          ? 'border-orange-500 text-orange-600' 
+                          : alert.status === 'acknowledged'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-green-500 text-green-600'
+                      }`}
+                    >
+                      {alert.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(alert.created_at)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Activity */}
       <Card>

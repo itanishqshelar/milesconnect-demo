@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { AddVehicleDialog } from '@/components/vehicles/add-vehicle-dialog'
 import { VehiclesTable } from '@/components/vehicles/vehicles-table'
+import { SyncStatusButton } from '@/components/vehicles/sync-status-button'
 import { Vehicle } from '@/lib/types/database'
 
 async function getVehicles() {
@@ -29,7 +30,10 @@ export default async function VehiclesPage() {
             {vehicles.length} total vehicles • {idleCount} idle • {inUseCount} in use
           </p>
         </div>
-        <AddVehicleDialog />
+        <div className="flex items-center gap-2">
+          <SyncStatusButton />
+          <AddVehicleDialog />
+        </div>
       </div>
 
       <VehiclesTable vehicles={vehicles} />

@@ -65,6 +65,27 @@ ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
 
 -- Enable Realtime for vehicles table (for live tracking)
 ALTER PUBLICATION supabase_realtime ADD TABLE vehicles;
+
+-- Driver Alerts table (for delay and emergency reporting)
+CREATE TABLE driver_alerts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  driver_id UUID REFERENCES drivers(id) ON DELETE SET NULL,
+  shipment_id UUID REFERENCES shipments(id) ON DELETE SET NULL,
+  alert_type TEXT NOT NULL CHECK (alert_type IN ('delay', 'emergency')),
+  issue TEXT NOT NULL,
+  custom_message TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'acknowledged', 'resolved')),
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_driver_alerts_status ON driver_alerts(status);
+CREATE INDEX idx_driver_alerts_created_at ON driver_alerts(created_at DESC);
+
+ALTER TABLE driver_alerts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for driver_alerts" ON driver_alerts FOR ALL USING (true) WITH CHECK (true);
+
 -- Allow all operations for anonymous users (MVP without auth)
 CREATE POLICY "Allow all for drivers" ON drivers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for vehicles" ON vehicles FOR ALL USING (true) WITH CHECK (true);

@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { ShipmentWithRelations, ShipmentStatus } from "@/lib/types/database"
+import { CallNovaButton } from "@/components/customer/call-nova-button"
 
 interface CustomerSession {
   id: string
@@ -624,6 +625,17 @@ export default function CustomerDashboardPage() {
               </Button>
             </div>
           </div>
+          
+          {/* Nova Care Call Button */}
+          {customer && (
+            <div className="mt-3 pt-3 border-t">
+              <CallNovaButton 
+                customerPhone={customer.phone} 
+                customerName={customer.name}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+              />
+            </div>
+          )}
         </div>
       </header>
 

@@ -2,6 +2,8 @@ export type DriverStatus = 'idle' | 'working'
 export type VehicleStatus = 'idle' | 'in_use'
 export type ShipmentStatus = 'pending' | 'in_transit' | 'arrived' | 'delivered' | 'cancelled'
 export type PaymentStatus = 'pending' | 'initiated' | 'completed' | 'failed'
+export type AlertType = 'delay' | 'emergency'
+export type AlertStatus = 'active' | 'acknowledged' | 'resolved'
 
 export interface Customer {
   id: string
@@ -75,6 +77,24 @@ export interface ShipmentWithRelations extends Shipment {
   drivers: Driver | null
   vehicles: Vehicle | null
   customers: Customer | null
+}
+
+export interface DriverAlert {
+  id: string
+  driver_id: string | null
+  shipment_id: string | null
+  alert_type: AlertType
+  issue: string
+  custom_message: string | null
+  status: AlertStatus
+  latitude: number | null
+  longitude: number | null
+  created_at: string
+}
+
+export interface DriverAlertWithRelations extends DriverAlert {
+  drivers: Driver | null
+  shipments: Shipment | null
 }
 
 export type Json =

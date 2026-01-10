@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { ShipmentWithRelations, Driver } from "@/lib/types/database"
+import { AlertPanel } from "@/components/driver/alert-panel"
 
 export default function DriverDashboardPage() {
   const router = useRouter()
@@ -115,6 +116,15 @@ export default function DriverDashboardPage() {
 
       {/* Shipments List */}
       <main className="flex-1 p-4 space-y-4">
+        {/* Alert Panel */}
+        {driver && (
+          <AlertPanel 
+            driver={driver} 
+            shipments={shipments}
+            onAlertSent={handleRefresh}
+          />
+        )}
+
         {shipments.length === 0 ? (
           <Card className="p-8 text-center">
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
