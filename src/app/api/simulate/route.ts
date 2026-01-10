@@ -60,9 +60,9 @@ export async function POST() {
       .from('vehicles')
       .select('*')
       .eq('status', 'in_use')
-      .or('tracking_mode.is.null,tracking_mode.eq.simulated')
 
     if (vehiclesError) {
+      console.error('Vehicles query error:', vehiclesError)
       return NextResponse.json({ error: vehiclesError.message }, { status: 500 })
     }
 
@@ -70,8 +70,17 @@ export async function POST() {
       return NextResponse.json({ message: 'No active vehicles to simulate', updated: 0 })
     }
 
+    // Filter out vehicles in live tracking mode (if tracking_mode column exists)
+    const simulatedVehicles = vehicles.filter(v => 
+      !v.tracking_mode || v.tracking_mode === 'simulated'
+    )
+
+    if (simulatedVehicles.length === 0) {
+      return NextResponse.json({ message: 'No simulated vehicles to update', updated: 0 })
+    }
+
     // Fetch active shipments for these vehicles
-    const vehicleIds = vehicles.map(v => v.id)
+    const vehicleIds = simulatedVehicles.map(v => v.id)
     const { data: shipments } = await supabase
       .from('shipments')
       .select('*')
@@ -88,7 +97,7 @@ export async function POST() {
 
     const updates: Promise<void>[] = []
 
-    for (const vehicle of vehicles as VehicleWithShipment[]) {
+    for (const vehicle of simulatedVehicles as VehicleWithShipment[]) {
       const shipment = shipmentMap.get(vehicle.id)
       
       if (!vehicle.current_route) {

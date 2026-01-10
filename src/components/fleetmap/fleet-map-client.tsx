@@ -537,6 +537,22 @@ export function FleetMapClient({ initialVehicles, activeShipments }: FleetMapCli
     updateRouteLines(vehicles)
   }, [vehicles, updateMapMarkers, updateRouteLines])
 
+  // Run a single simulation step
+  const runSimulationStep = async () => {
+    try {
+      const response = await fetch('/api/simulate', { method: 'POST' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Simulation step failed:', errorData)
+      } else {
+        const data = await response.json()
+        console.log('Simulation step:', data)
+      }
+    } catch (error) {
+      console.error('Simulation error:', error)
+    }
+  }
+
   // Simulation controls
   const startSimulation = () => {
     setIsSimulating(true)
@@ -562,17 +578,6 @@ export function FleetMapClient({ initialVehicles, activeShipments }: FleetMapCli
       const visibility = showTraffic ? 'none' : 'visible'
       map.current.setLayoutProperty('traffic-flow', 'visibility', visibility)
       setShowTraffic(!showTraffic)
-    }
-  }
-
-  const runSimulationStep = async () => {
-    try {
-      const response = await fetch('/api/simulate', { method: 'POST' })
-      if (!response.ok) {
-        console.error('Simulation step failed')
-      }
-    } catch (error) {
-      console.error('Simulation error:', error)
     }
   }
 

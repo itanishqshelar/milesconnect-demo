@@ -26,6 +26,7 @@ CREATE TABLE vehicles (
   current_route JSONB,
   route_index INTEGER DEFAULT 0,
   eta TIMESTAMPTZ,
+  tracking_mode TEXT DEFAULT 'simulated' CHECK (tracking_mode IN ('simulated', 'live')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
