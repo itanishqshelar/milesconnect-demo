@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       customerPhone: shipment.customers?.phone_number || '',
       redirectUrl,
       callbackUrl,
+      appUrl, // Pass the dynamically detected base URL for simulation redirects
     })
 
     if (!result.success) {

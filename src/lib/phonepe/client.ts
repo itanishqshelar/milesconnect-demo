@@ -340,6 +340,7 @@ export interface StandardCheckoutRequest {
   customerPhone?: string
   redirectUrl: string
   callbackUrl: string
+  appUrl?: string // Base URL for simulation redirects (e.g., https://milesconnect-demo.vercel.app)
 }
 
 export interface StandardCheckoutResponse {
@@ -359,12 +360,12 @@ export async function createStandardCheckout(request: StandardCheckoutRequest): 
   
   // Use local simulation for demo purposes
   if (useSimulation || !hasSaltKeyCredentials) {
-    // Redirect to local payment simulation page
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Redirect to payment simulation page using the provided appUrl or fallback
+    const baseUrl = request.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     return {
       success: true,
       merchantTransactionId,
-      redirectUrl: `${appUrl}/payment/simulate?transactionId=${merchantTransactionId}&shipmentId=${request.shipmentId}&amount=${request.amountInRupees}&redirectUrl=${encodeURIComponent(request.redirectUrl)}`,
+      redirectUrl: `${baseUrl}/payment/simulate?transactionId=${merchantTransactionId}&shipmentId=${request.shipmentId}&amount=${request.amountInRupees}&redirectUrl=${encodeURIComponent(request.redirectUrl)}`,
     }
   }
 
