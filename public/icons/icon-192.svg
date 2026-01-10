@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="24" fill="#0a0a0a"/>
+  <g transform="translate(32, 56)">
+    <!-- Truck body -->
+    <rect x="0" y="40" width="80" height="40" rx="4" fill="#ffffff"/>
+    <!-- Truck cab -->
+    <rect x="80" y="50" width="30" height="30" rx="4" fill="#ffffff"/>
+    <!-- Windshield -->
+    <rect x="85" y="55" width="20" height="12" rx="2" fill="#0a0a0a"/>
+    <!-- Wheels -->
+    <circle cx="25" cy="80" r="10" fill="#ffffff"/>
+    <circle cx="25" cy="80" r="5" fill="#0a0a0a"/>
+    <circle cx="70" cy="80" r="10" fill="#ffffff"/>
+    <circle cx="70" cy="80" r="5" fill="#0a0a0a"/>
+    <circle cx="100" cy="80" r="10" fill="#ffffff"/>
+    <circle cx="100" cy="80" r="5" fill="#0a0a0a"/>
+    <!-- GPS signal waves -->
+    <path d="M64 10 Q64 20, 54 25" stroke="#22c55e" stroke-width="3" fill="none"/>
+    <path d="M64 0 Q64 15, 49 22" stroke="#22c55e" stroke-width="3" fill="none"/>
+    <circle cx="64" cy="30" r="5" fill="#22c55e"/>
+  </g>
+</svg>
