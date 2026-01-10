@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { ShipmentStatus } from '@/lib/types/database'
+import { getOrCreateCustomer } from './customers'
 
 function generateShipmentNumber(): string {
   const now = new Date()
@@ -23,6 +24,28 @@ export async function createShipment(formData: FormData) {
   const driverId = formData.get('driver_id') as string
   const vehicleId = formData.get('vehicle_id') as string
   const revenue = parseFloat(formData.get('revenue') as string) || 0
+
+  // Handle customer - either existing or new
+  let customerId: string | null = null
+  const existingCustomerId = formData.get('customer_id') as string
+  const newCustomerName = formData.get('customer_name') as string
+  const newCustomerPhone = formData.get('customer_phone') as string
+
+  if (existingCustomerId) {
+    // Using existing customer
+    customerId = existingCustomerId
+  } else if (newCustomerName && newCustomerPhone) {
+    // Creating new customer
+    const customerResult = await getOrCreateCustomer(newCustomerName, newCustomerPhone)
+    if (customerResult.error) {
+      return { error: customerResult.error }
+    }
+    customerId = customerResult.customer?.id || null
+  }
+
+  if (!customerId) {
+    return { error: 'Customer information is required' }
+  }
 
   if (!startLocation || !destination || !driverId || !vehicleId) {
     return { error: 'All fields are required' }
@@ -68,6 +91,7 @@ export async function createShipment(formData: FormData) {
       dest_lng: destLng,
       driver_id: driverId,
       vehicle_id: vehicleId,
+      customer_id: customerId,
       revenue: revenue,
       status: 'in_transit',
     })
@@ -215,4 +239,155 @@ export async function deleteShipment(shipmentId: string) {
   revalidatePath('/vehicles')
 
   return { success: true }
+}
+
+/**
+ * Generate 4-digit OTP for delivery verification
+ */
+function generateDeliveryOTP(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString()
+}
+
+/**
+ * Driver arrives at destination - generates OTP for customer verification
+ */
+export async function markDriverArrived(shipmentId: string) {
+  const supabase = await createClient()
+
+  // Get the shipment first
+  const { data: shipment, error: fetchError } = await supabase
+    .from('shipments')
+    .select('id, status')
+    .eq('id', shipmentId)
+    .single()
+
+  if (fetchError || !shipment) {
+    return { error: 'Shipment not found' }
+  }
+
+  if (shipment.status !== 'in_transit') {
+    return { error: 'Shipment must be in transit to mark as arrived' }
+  }
+
+  // Generate 4-digit OTP
+  const otp = generateDeliveryOTP()
+
+  // Update shipment status to 'arrived' and store OTP
+  const { error: updateError } = await supabase
+    .from('shipments')
+    .update({
+      status: 'arrived',
+      delivery_otp: otp,
+      otp_generated_at: new Date().toISOString(),
+    })
+    .eq('id', shipmentId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/shipments')
+  revalidatePath('/driver/dashboard')
+
+  return { success: true, otp }
+}
+
+/**
+ * Verify OTP entered by driver (shared by customer)
+ */
+export async function verifyDeliveryOTP(shipmentId: string, enteredOtp: string) {
+  const supabase = await createClient()
+
+  // Get the shipment with OTP
+  const { data: shipment, error: fetchError } = await supabase
+    .from('shipments')
+    .select('id, status, delivery_otp, otp_generated_at')
+    .eq('id', shipmentId)
+    .single()
+
+  if (fetchError || !shipment) {
+    return { error: 'Shipment not found' }
+  }
+
+  if (shipment.status !== 'arrived') {
+    return { error: 'Shipment must be in arrived status' }
+  }
+
+  if (!shipment.delivery_otp) {
+    return { error: 'No OTP generated for this shipment' }
+  }
+
+  // Check OTP expiry (10 minutes)
+  if (shipment.otp_generated_at) {
+    const otpAge = Date.now() - new Date(shipment.otp_generated_at).getTime()
+    if (otpAge > 10 * 60 * 1000) {
+      return { error: 'OTP has expired. Please regenerate.' }
+    }
+  }
+
+  // Verify OTP
+  if (shipment.delivery_otp !== enteredOtp) {
+    return { error: 'Invalid OTP. Please check with the customer.' }
+  }
+
+  // Mark OTP as verified
+  const { error: updateError } = await supabase
+    .from('shipments')
+    .update({
+      otp_verified_at: new Date().toISOString(),
+    })
+    .eq('id', shipmentId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/shipments')
+
+  return { success: true }
+}
+
+/**
+ * Regenerate OTP if expired or customer missed it
+ */
+export async function regenerateDeliveryOTP(shipmentId: string) {
+  const supabase = await createClient()
+
+  // Get the shipment
+  const { data: shipment, error: fetchError } = await supabase
+    .from('shipments')
+    .select('id, status')
+    .eq('id', shipmentId)
+    .single()
+
+  if (fetchError || !shipment) {
+    return { error: 'Shipment not found' }
+  }
+
+  if (shipment.status !== 'arrived') {
+    return { error: 'Shipment must be in arrived status' }
+  }
+
+  // Generate new OTP
+  const otp = generateDeliveryOTP()
+
+  const { error: updateError } = await supabase
+    .from('shipments')
+    .update({
+      delivery_otp: otp,
+      otp_generated_at: new Date().toISOString(),
+      otp_verified_at: null, // Reset verification
+    })
+    .eq('id', shipmentId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/shipments')
+
+  return { success: true, otp }
 }

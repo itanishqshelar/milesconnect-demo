@@ -17,7 +17,7 @@ export default function LoginPage() {
   }
 
   const handleCustomerLogin = () => {
-    router.push("/track")
+    router.push("/customer/login")
   }
 
   return (

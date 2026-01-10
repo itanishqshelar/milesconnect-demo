@@ -1,6 +1,16 @@
 export type DriverStatus = 'idle' | 'working'
 export type VehicleStatus = 'idle' | 'in_use'
-export type ShipmentStatus = 'pending' | 'in_transit' | 'delivered' | 'cancelled'
+export type ShipmentStatus = 'pending' | 'in_transit' | 'arrived' | 'delivered' | 'cancelled'
+export type PaymentStatus = 'pending' | 'initiated' | 'completed' | 'failed'
+
+export interface Customer {
+  id: string
+  name: string
+  phone_number: string
+  login_otp: string | null
+  login_otp_expires_at: string | null
+  created_at: string
+}
 
 export interface Driver {
   id: string
@@ -48,13 +58,23 @@ export interface Shipment {
   revenue: number | null
   driver_id: string | null
   vehicle_id: string | null
+  customer_id: string | null
   created_at: string
   delivered_at: string | null
+  // Secure Handshake fields
+  delivery_otp: string | null
+  otp_generated_at: string | null
+  otp_verified_at: string | null
+  payment_status: PaymentStatus | null
+  payment_transaction_id: string | null
+  payment_completed_at: string | null
+  phonepe_order_id: string | null
 }
 
 export interface ShipmentWithRelations extends Shipment {
   drivers: Driver | null
   vehicles: Vehicle | null
+  customers: Customer | null
 }
 
 export type Json =
@@ -68,6 +88,11 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      customers: {
+        Row: Customer
+        Insert: Omit<Customer, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<Customer, 'id' | 'created_at'>>
+      }
       drivers: {
         Row: Driver
         Insert: Omit<Driver, 'id' | 'created_at'> & { id?: string; created_at?: string }

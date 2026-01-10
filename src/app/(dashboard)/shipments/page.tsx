@@ -11,7 +11,8 @@ async function getShipments() {
     .select(`
       *,
       drivers (*),
-      vehicles (*)
+      vehicles (*),
+      customers (*)
     `)
     .order('created_at', { ascending: false }) as { data: ShipmentWithRelations[] | null }
 

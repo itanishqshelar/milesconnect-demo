@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LocationAutocomplete } from '@/components/ui/location-autocomplete'
+import { CustomerAutocomplete } from '@/components/ui/customer-autocomplete'
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ export function AddShipmentDialog({ idleDrivers, idleVehicles }: AddShipmentDial
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isNewCustomer, setIsNewCustomer] = useState(false)
   const router = useRouter()
 
   async function handleSubmit(formData: FormData) {
@@ -51,6 +53,7 @@ export function AddShipmentDialog({ idleDrivers, idleVehicles }: AddShipmentDial
 
     setLoading(false)
     setOpen(false)
+    setIsNewCustomer(false)
     router.refresh()
   }
 
@@ -81,6 +84,53 @@ export function AddShipmentDialog({ idleDrivers, idleVehicles }: AddShipmentDial
         ) : (
           <form action={handleSubmit} className="space-y-4">
             <div className="grid gap-4">
+              {/* Customer Selection */}
+              <div className="grid gap-2">
+                <Label>Customer Information</Label>
+                {!isNewCustomer ? (
+                  <CustomerAutocomplete
+                    id="customer"
+                    name="customer"
+                    placeholder="Search by name or phone..."
+                    onCreateNew={() => setIsNewCustomer(true)}
+                    required
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="customer_name">Customer Name</Label>
+                      <Input
+                        id="customer_name"
+                        name="customer_name"
+                        type="text"
+                        placeholder="Enter customer name"
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="customer_phone">Phone Number</Label>
+                      <Input
+                        id="customer_phone"
+                        name="customer_phone"
+                        type="tel"
+                        placeholder="10-digit mobile number"
+                        pattern="[0-9]{10}"
+                        maxLength={10}
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsNewCustomer(false)}
+                    >
+                      ← Back to search
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="start_location">Start Location</Label>
                 <LocationAutocomplete
@@ -134,7 +184,7 @@ export function AddShipmentDialog({ idleDrivers, idleVehicles }: AddShipmentDial
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="revenue">Revenue ($)</Label>
+                <Label htmlFor="revenue">Revenue (₹)</Label>
                 <Input
                   id="revenue"
                   name="revenue"

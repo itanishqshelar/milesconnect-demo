@@ -48,6 +48,13 @@ function getStatusConfig(status: ShipmentStatus) {
         bgGradient: "from-blue-500 to-indigo-500",
         description: "Your package is on the way",
       }
+    case "arrived":
+      return {
+        label: "Driver Arrived",
+        color: "bg-orange-100 text-orange-700 border-orange-200",
+        bgGradient: "from-orange-500 to-amber-500",
+        description: "Driver is at your location",
+      }
     case "delivered":
       return {
         label: "Delivered",
@@ -131,11 +138,26 @@ function getTimelineSteps(shipment: ShipmentWithRelations): TimelineStep[] {
       status:
         status === "in_transit"
           ? "current"
+          : status === "arrived" || status === "delivered"
+          ? "completed"
+          : "upcoming",
+      time: status === "in_transit" || status === "arrived" || status === "delivered" 
+        ? formatTime(new Date(createdAt.getTime() + 60 * 60000)) 
+        : undefined,
+    },
+    {
+      id: "arrived",
+      title: "Driver Arrived",
+      description: "Driver is at your location",
+      icon: <MapPin className="h-5 w-5" />,
+      status:
+        status === "arrived"
+          ? "current"
           : status === "delivered"
           ? "completed"
           : "upcoming",
-      time: status === "in_transit" || status === "delivered" 
-        ? formatTime(new Date(createdAt.getTime() + 60 * 60000)) 
+      time: status === "arrived" || status === "delivered"
+        ? formatTime(new Date(createdAt.getTime() + 120 * 60000))
         : undefined,
     },
     {
@@ -279,6 +301,8 @@ export function TrackingView({ shipment, onNewSearch }: TrackingViewProps) {
                 <div className={`p-3 rounded-xl bg-gradient-to-br ${statusConfig.bgGradient}`}>
                   {shipment.status === "delivered" ? (
                     <CheckCircle2 className="h-6 w-6 text-white" />
+                  ) : shipment.status === "arrived" ? (
+                    <MapPin className="h-6 w-6 text-white" />
                   ) : shipment.status === "in_transit" ? (
                     <Truck className="h-6 w-6 text-white" />
                   ) : shipment.status === "cancelled" ? (
@@ -332,6 +356,35 @@ export function TrackingView({ shipment, onNewSearch }: TrackingViewProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* OTP Display Card - Shown when driver has arrived */}
+        {shipment.status === "arrived" && shipment.delivery_otp && (
+          <Card className="border-2 border-orange-400 shadow-lg bg-orange-50">
+            <CardContent className="p-6">
+              <div className="text-center space-y-3">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500 text-white mx-auto">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-orange-800">
+                    🔐 Delivery Verification Code
+                  </h3>
+                  <p className="text-sm text-orange-700 mt-1">
+                    Your driver has arrived! Share this code with them.
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl py-4 px-6 shadow-inner">
+                  <p className="text-4xl font-mono font-bold tracking-[0.4em] text-orange-900">
+                    {shipment.delivery_otp}
+                  </p>
+                </div>
+                <p className="text-xs text-orange-600">
+                  Do not share this code with anyone except your driver
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Route Card */}
         <Card className="border-0 shadow-sm">

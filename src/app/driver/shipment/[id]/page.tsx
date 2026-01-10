@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { 
   ArrowLeft,
   MapPin, 
@@ -14,20 +15,37 @@ import {
   SatelliteIcon,
   Phone,
   ExternalLink,
-  CircleDot
+  CircleDot,
+  HandCoins,
+  KeyRound,
+  CheckCircle2,
+  RefreshCw,
+  AlertCircle,
+  PartyPopper
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { ShipmentWithRelations } from "@/lib/types/database"
 import { useGeolocation } from "@/hooks/use-geolocation"
 import { useWakeLock } from "@/hooks/use-wake-lock"
+import { markDriverArrived, verifyDeliveryOTP, regenerateDeliveryOTP } from "@/lib/actions/shipments"
 
 export default function ShipmentDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const shipmentId = params.id as string
 
   const [shipment, setShipment] = useState<ShipmentWithRelations | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Secure Handshake state
+  const [isArriving, setIsArriving] = useState(false)
+  const [enteredOtp, setEnteredOtp] = useState("")
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [otpError, setOtpError] = useState("")
+  const [isRegeneratingOtp, setIsRegeneratingOtp] = useState(false)
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false)
+  const [paymentResult, setPaymentResult] = useState<'success' | 'failed' | null>(null)
 
   // Get vehicle ID for GPS tracking
   const vehicleId = shipment?.vehicles?.id || null
@@ -53,6 +71,45 @@ export default function ShipmentDetailPage() {
 
   useEffect(() => {
     fetchShipment()
+    
+    // Check for payment result from callback
+    const paymentParam = searchParams.get('payment')
+    if (paymentParam === 'success') {
+      setPaymentResult('success')
+    } else if (paymentParam === 'failed') {
+      setPaymentResult('failed')
+    }
+  }, [shipmentId, searchParams])
+
+  // Set up realtime subscription for shipment updates
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`shipment-${shipmentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shipments',
+          filter: `id=eq.${shipmentId}`,
+        },
+        () => {
+          fetchShipment()
+        }
+      )
+      .subscribe()
+
+    // Also poll every 3 seconds when waiting for payment
+    // This is a backup in case realtime isn't working
+    const pollInterval = setInterval(() => {
+      fetchShipment()
+    }, 3000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(pollInterval)
+    }
   }, [shipmentId])
 
   const fetchShipment = async () => {
@@ -98,11 +155,70 @@ export default function ShipmentDetailPage() {
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
       case 'in_transit':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'arrived':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
       case 'delivered':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  // Handle "I'm Here" - Driver arrived
+  const handleArrived = async () => {
+    setIsArriving(true)
+    const result = await markDriverArrived(shipmentId)
+    setIsArriving(false)
+    
+    if (result.error) {
+      alert(result.error)
+    } else {
+      // Refresh shipment data
+      fetchShipment()
+    }
+  }
+
+  // Handle OTP verification
+  const handleVerifyOtp = async () => {
+    if (enteredOtp.length !== 4) {
+      setOtpError("Please enter the 4-digit OTP")
+      return
+    }
+    
+    setIsVerifyingOtp(true)
+    setOtpError("")
+    
+    const result = await verifyDeliveryOTP(shipmentId, enteredOtp)
+    
+    setIsVerifyingOtp(false)
+    
+    if (result.error) {
+      setOtpError(result.error)
+    } else {
+      // Refresh shipment data
+      fetchShipment()
+    }
+  }
+
+  // Handle OTP regeneration
+  const handleRegenerateOtp = async () => {
+    setIsRegeneratingOtp(true)
+    const result = await regenerateDeliveryOTP(shipmentId)
+    setIsRegeneratingOtp(false)
+    
+    if (result.error) {
+      alert(result.error)
+    } else {
+      fetchShipment()
+    }
+  }
+
+  // Handle payment initiation (customer will pay via their dashboard)
+  // This function is kept for backwards compatibility but payment is now customer-initiated
+  const handleInitiatePayment = async () => {
+    // Payment is now initiated by customer via their dashboard
+    // Driver just waits for payment confirmation
+    alert('Payment will be collected from customer. Please wait for customer to complete payment on their device.')
   }
 
   if (isLoading) {
@@ -250,6 +366,214 @@ export default function ShipmentDetailPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* ============================================ */}
+        {/* SECURE HANDSHAKE SECTION */}
+        {/* ============================================ */}
+
+        {/* Delivered Success Message */}
+        {shipment.status === 'delivered' && (
+          <Card className="border-green-500 border-2 bg-green-50 dark:bg-green-900/20">
+            <CardContent className="pt-6 text-center">
+              <PartyPopper className="h-12 w-12 mx-auto text-green-600 mb-3" />
+              <h3 className="text-lg font-bold text-green-800 dark:text-green-300">
+                Delivery Completed! 🎉
+              </h3>
+              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
+                Payment received and shipment marked as delivered.
+              </p>
+              {shipment.payment_transaction_id && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Transaction ID: {shipment.payment_transaction_id}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 1: Arrived Button (shown when in_transit) */}
+        {shipment.status === 'in_transit' && (
+          <Card className="border-orange-400 border-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-orange-500" />
+                Delivery Confirmation
+              </CardTitle>
+              <CardDescription>
+                When you arrive at the destination, tap the button below
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleArrived}
+                className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-lg"
+                disabled={isArriving}
+              >
+                {isArriving ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="mr-2 h-5 w-5" />
+                    I&apos;m Here - Arrived at Destination
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: OTP Verification (shown when arrived but not verified) */}
+        {shipment.status === 'arrived' && !shipment.otp_verified_at && (
+          <Card className="border-purple-400 border-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-purple-500" />
+                OTP Verification
+              </CardTitle>
+              <CardDescription>
+                Ask the customer for their 4-digit delivery code
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+                <p className="text-sm text-purple-800 dark:text-purple-300 mb-2">
+                  📱 Customer can see OTP in their MilesConnect app
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  The customer must share this code with you verbally
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Enter 4-digit OTP"
+                  value={enteredOtp}
+                  onChange={(e) => {
+                    setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    setOtpError("")
+                  }}
+                  className="text-center text-2xl tracking-[0.5em] font-mono h-14"
+                  maxLength={4}
+                />
+                {otpError && (
+                  <p className="text-sm text-red-500 text-center flex items-center justify-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {otpError}
+                  </p>
+                )}
+              </div>
+
+              <Button 
+                onClick={handleVerifyOtp}
+                className="w-full h-12 bg-purple-500 hover:bg-purple-600"
+                disabled={isVerifyingOtp || enteredOtp.length !== 4}
+              >
+                {isVerifyingOtp ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Verify OTP
+                  </>
+                )}
+              </Button>
+
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={handleRegenerateOtp}
+                disabled={isRegeneratingOtp}
+              >
+                {isRegeneratingOtp ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Regenerate OTP
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Awaiting Customer Payment (shown when OTP verified but not paid) */}
+        {shipment.status === 'arrived' && shipment.otp_verified_at && shipment.payment_status !== 'completed' && (
+          <Card className="border-green-400 border-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <HandCoins className="h-5 w-5 text-green-500" />
+                Awaiting Customer Payment
+              </CardTitle>
+              <CardDescription>
+                OTP verified! Customer is completing payment on their device.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Amount to Collect</p>
+                <p className="text-3xl font-bold text-green-700 dark:text-green-300">
+                  ₹{shipment.revenue?.toLocaleString('en-IN') || '0'}
+                </p>
+              </div>
+
+              {shipment.payment_status === 'initiated' && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
+                    <span className="font-semibold text-yellow-700">Payment in Progress</span>
+                  </div>
+                  <p className="text-sm text-yellow-600">
+                    Waiting for customer to complete UPI payment...
+                  </p>
+                </div>
+              )}
+
+              {shipment.payment_status === 'failed' && (
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
+                  <p className="text-sm text-red-600 flex items-center justify-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    Payment failed. Ask customer to retry on their device.
+                  </p>
+                </div>
+              )}
+
+              {(!shipment.payment_status || shipment.payment_status === 'pending') && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Phone className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-blue-700">Customer Action Required</span>
+                  </div>
+                  <p className="text-sm text-blue-600">
+                    Ask the customer to open their shipment dashboard and complete the UPI payment.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col items-center gap-2 py-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Auto-refreshing every 3 seconds...
+                  </span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={fetchShipment}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Vehicle Info */}
         {shipment.vehicles && (
