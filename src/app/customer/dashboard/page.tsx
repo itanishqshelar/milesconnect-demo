@@ -27,6 +27,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { ShipmentWithRelations, ShipmentStatus } from "@/lib/types/database"
 import { CallNovaButton } from "@/components/customer/call-nova-button"
+import { DownloadInvoiceButton } from "@/components/customer/download-invoice-button"
 
 interface CustomerSession {
   id: string
@@ -192,7 +193,12 @@ function getTimelineSteps(shipment: ShipmentWithRelations): TimelineStep[] {
 }
 
 // Shipment Card Component with expandable tracking
-function ShipmentCard({ shipment, onPaymentComplete }: { shipment: ShipmentWithRelations, onPaymentComplete?: () => void }) {
+function ShipmentCard({ shipment, onPaymentComplete, customerName, customerPhone }: { 
+  shipment: ShipmentWithRelations, 
+  onPaymentComplete?: () => void,
+  customerName?: string,
+  customerPhone?: string 
+}) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [currentLocation, setCurrentLocation] = useState<string>("")
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
@@ -394,6 +400,17 @@ function ShipmentCard({ shipment, onPaymentComplete }: { shipment: ShipmentWithR
             <p className="text-sm font-medium truncate">{shipment.destination.split(',')[0]}</p>
           </div>
         </div>
+
+        {/* Download Invoice Button for delivered shipments */}
+        {shipment.status === 'delivered' && shipment.payment_status === 'completed' && customerName && customerPhone && (
+          <div className="pt-2">
+            <DownloadInvoiceButton 
+              shipment={shipment}
+              customerName={customerName}
+              customerPhone={customerPhone}
+            />
+          </div>
+        )}
 
         {/* Payment Status (for arrived shipments) */}
         {(shipment.status === 'arrived' || shipment.status === 'delivered') && shipment.revenue && (
@@ -665,6 +682,8 @@ export default function CustomerDashboardPage() {
                       key={shipment.id} 
                       shipment={shipment} 
                       onPaymentComplete={() => customer && fetchShipments(customer.id)}
+                      customerName={customer?.name}
+                      customerPhone={customer?.phone}
                     />
                   ))}
                 </div>
@@ -681,7 +700,9 @@ export default function CustomerDashboardPage() {
                   {completedShipments.map((shipment) => (
                     <ShipmentCard 
                       key={shipment.id} 
-                      shipment={shipment} 
+                      shipment={shipment}
+                      customerName={customer?.name}
+                      customerPhone={customer?.phone}
                     />
                   ))}
                 </div>
