@@ -1,4 +1,4 @@
-# 🚚 MilesConnect
+# MilesConnect
 
 **Real-time fleet tracking & management system**
 
@@ -10,55 +10,29 @@
 
 ---
 
-## ✨ Features
+##  Features
 
-🗺️ **Live Fleet Map** — Track all vehicles in real-time on interactive maps
+**Live Fleet Map** — Track all vehicles in real-time on interactive maps
 
-🚗 **Vehicle Management** — Monitor status, location & availability
+ **Vehicle Management** — Monitor status, location & availability
 
-👨‍✈️ **Driver Portal** — Dedicated mobile-friendly driver dashboard
+**Driver Portal** — Dedicated mobile-friendly driver dashboard
 
-📦 **Shipment Tracking** — Create, assign & track deliveries
+**Shipment Tracking** — Create, assign & track deliveries
 
-🔔 **Smart Alerts** — Real-time notifications for drivers
+ **Smart Alerts** — Real-time notifications for drivers
 
-🔗 **Public Tracking** — Shareable tracking links for customers
+ **Public Tracking** — Shareable tracking links for customers
 
-📞 **AI Voice Assistant** — Customer support with Retell AI
+ **AI Voice Assistant** — Customer support with Retell AI
 
----
+ ---
+ <img width="1911" height="879" alt="image" src="https://github.com/user-attachments/assets/e555a48f-a0c6-46e3-98e9-62231a5726b6" />
 
-## 🚀 Quick Start
+ <img width="1895" height="893" alt="image" src="https://github.com/user-attachments/assets/d3f03463-4b32-493e-b634-250141891558" />
 
-```bash
-# Clone & Install
-git clone https://github.com/itanishqshelar/milesconnect-demo.git
-cd milesconnect-demo && npm install
 
-# Configure environment
-cp .env.example .env.local
-# Add your Supabase & Mapbox keys
-
-# Run
-npm run dev
-```
-
-Open [localhost:3000](http://localhost:3000)
-
----
-
-## 🔧 Environment Variables
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token
-RETELL_API_KEY=your_retell_key
-```
-
----
-
-## 📱 Portals
+##  Portals
 
 | Portal          | Route        | Description                   |
 | --------------- | ------------ | ----------------------------- |
@@ -67,14 +41,3 @@ RETELL_API_KEY=your_retell_key
 | Customer Portal | `/customer`  | Track shipments & support     |
 | Public Tracking | `/track`     | Shareable tracking page       |
 
----
-
-## 🌐 Deploy
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/itanishqshelar/milesconnect-demo)
-
----
-
-## 📄 License
-
-MIT © [Tanishq Shelar](https://github.com/itanishqshelar)
